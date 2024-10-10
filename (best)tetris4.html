@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #282c34;
+            color: #ffffff;
+        }
+        .game-container {
+            display: flex;
+        }
+        #game {
+            display: grid;
+            grid-template-rows: repeat(20, 30px);
+            grid-template-columns: repeat(10, 30px);
+            border: 1px solid #555;
+            background-color: #333;
+        }
+        .block {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #555;
+        }
+        .filled {
+            border: 1px solid #333;
+        }
+        .color1 { background-color: #FF5733; } /* L-shape */
+        .color2 { background-color: #FFFF66; } /* Square */
+        .color3 { background-color: #66B2FF; } /* T-shape */
+        .color4 { background-color: #66FF66; } /* Z-shape */
+        .color5 { background-color: #FF33FF; } /* I-shape */
+        .color6 { background-color: #FF9933; } /* J-shape */
+        .color7 { background-color: #3399FF; } /* S-shape */
+        .scoreboard {
+            margin-left: 20px;
+        }
+        .scoreboard h2 {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="game"></div>
+        <div class="scoreboard">
+            <h2>Score</h2>
+            <div id="score">0</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameGrid = document.querySelector('#game');
+            const scoreDisplay = document.getElementById('score');
+            const width = 10;
+            let score = 0;
+            let squares = [];
+
+            // Create the game grid
+            for (let i = 0; i < 200; i++) {
+                const square = document.createElement('div');
+                square.classList.add('block');
+                gameGrid.appendChild(square);
+                squares.push(square);
+            }
+            // Add base squares for collision detection
+            for (let i = 0; i < width; i++) {
+                const baseSquare = document.createElement('div');
+                baseSquare.classList.add('block', 'filled');
+                gameGrid.appendChild(baseSquare);
+                squares.push(baseSquare);
+            }
+
+            // Define Tetromino shapes and their colors
+            const tetrominoes = [
+                { shape: [1, width + 1, width * 2 + 1, 2], color: 'color1' }, // L shape
+                { shape: [0, 1, width, width + 1], color: 'color2' },          // Square shape
+                { shape: [1, width, width + 1, width + 2], color: 'color3' },  // T shape
+                { shape: [0, width, width + 1, width * 2 + 1], color: 'color4' }, // Z shape
+                { shape: [1, width + 1, width * 2 + 1, 0], color: 'color5' },  // I shape
+                { shape: [1, width + 1, width + 2, width * 2 + 2], color: 'color6' }, // J shape
+                { shape: [1, 2, width, width + 1], color: 'color7' }           // S shape
+            ];
+
+            let currentPosition = 4;
+            let currentRotation = 0;
+            let random = Math.floor(Math.random() * tetrominoes.length);
+            let current = tetrominoes[random];
+
+            // Draw the Tetromino with color
+            function draw() {
+                current.shape.forEach(index => {
+                    squares[currentPosition + index].classList.add('filled', current.color);
+                });
+            }
+
+            // Undraw the Tetromino
+            function undraw() {
+                current.shape.forEach(index => {
+                    squares[currentPosition + index].classList.remove('filled', current.color);
+                });
+            }
+
+            // Check for valid position (to prevent floating blocks)
+            function validPosition() {
+                return current.shape.every(index => 
+                    (currentPosition + index >= 0) && 
+                    !squares[currentPosition + index].classList.contains('filled')
+                );
+            }
+
+            // Assign functions to keycodes
+            function control(e) {
+                if (e.keyCode === 37) moveLeft();
+                if (e.keyCode === 39) moveRight();
+                if (e.keyCode === 40) moveDown();
+                if (e.keyCode === 38) rotate();
+                if (e.keyCode === 32) instantDrop();
+            }
+            document.addEventListener('keydown', control);
+
+            // Move down function
+            function moveDown() {
+                undraw();
+                currentPosition += width;
+                if (!validPosition()) {
+                    currentPosition -= width;
+                    draw();
+                    freeze();
+                } else {
+                    draw();
+                }
+            }
+
+            // Freeze function to lock the block in place
+            function freeze() {
+                if (current.shape.some(index => squares[currentPosition + index + width].classList.contains('filled'))) {
+                    current.shape.forEach(index => squares[currentPosition + index].classList.add('filled'));
+
+                    // Add block surface area to the score
+                    addBlockScore();
+
+                    // Start a new tetromino falling
+                    random = Math.floor(Math.random() * tetrominoes.length);
+                    current = tetrominoes[random];
+                    currentPosition = 4;
+
+                    // Prevent new blocks from freezing if invalid position
+                    if (!validPosition()) {
+                        gameOver();
+                    }
+                    draw();
+                }
+            }
+
+            // Add block surface area to score
+            function addBlockScore() {
+                const blockSurfaceArea = current.shape.length;
+                score += blockSurfaceArea * 10; // Each square is worth 10 points
+                scoreDisplay.innerHTML = score;
+            }
+
+            // Move the tetromino left, unless at the edge or blocked
+            function moveLeft() {
+                undraw();
+                const isAtLeftEdge = current.shape.some(index => (currentPosition + index) % width === 0);
+                if (!isAtLeftEdge) currentPosition -= 1;
+                if (!validPosition()) currentPosition += 1;
+                draw();
+            }
+
+            // Move the tetromino right, unless at the edge or blocked
+            function moveRight() {
+                undraw();
+                const isAtRightEdge = current.shape.some(index => (currentPosition + index) % width === width - 1);
+                if (!isAtRightEdge) currentPosition += 1;
+                if (!validPosition()) currentPosition -= 1;
+                draw();
+            }
+
+            // Rotate the tetromino
+            function rotate() {
+                undraw();
+                currentRotation++;
+                if (currentRotation === current.shape.length) currentRotation = 0;
+                draw();
+            }
+
+            // Game over check
+            function gameOver() {
+                scoreDisplay.innerHTML = 'Game Over';
+                clearInterval(timerId);
+            }
+
+            // Set interval for the block to move down every second
+            let timerId = setInterval(moveDown, 1000);
+        });
+    </script>
+</body>
+</html>
